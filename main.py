@@ -15,93 +15,85 @@ def create_start_field(size: Tuple[int, int] = (1024, 1024)) -> str:
     return START_FIELD_SAVE_PATH
 
 
-class Ant:
+DIRECTIONS = {
+    "top": {
+        "move_x": 0,
+        "move_y": -1,
+        "turn_counterclockwise": "left",
+        "turn_clockwise": "right",
+    },
+    "right": {
+        "move_x": 1,
+        "move_y": 0,
+        "turn_counterclockwise": "top",
+        "turn_clockwise": "bottom",
+    },
+    "bottom": {
+        "move_x": 0,
+        "move_y": 1,
+        "turn_counterclockwise": "right",
+        "turn_clockwise": "left",
+    },
+    "left": {
+        "move_x": -1,
+        "move_y": 0,
+        "turn_counterclockwise": "bottom",
+        "turn_clockwise": "top",
+    },
+}
 
-    directions = {
-        "top": {
-            "move_x": 0,
-            "move_y": -1,
-            "turn_counterclockwise": "left",
-            "turn_clockwise": "right",
-        },
-        "right": {
-            "move_x": 1,
-            "move_y": 0,
-            "turn_counterclockwise": "top",
-            "turn_clockwise": "bottom",
-        },
-        "bottom": {
-            "move_x": 0,
-            "move_y": 1,
-            "turn_counterclockwise": "right",
-            "turn_clockwise": "left",
-        },
-        "left": {
-            "move_x": -1,
-            "move_y": 0,
-            "turn_counterclockwise": "bottom",
-            "turn_clockwise": "top",
-        },
-    }
 
-    def __init__(
-        self,
-        field_path: str,
-        start_pos: Tuple[int, int] = (512, 512),
-        start_direction: str = "top",
-    ):
-        self.__field_path = field_path
-        self.__pos = start_pos
-        self.__direction = start_direction
-        self.__count_black_dots = 0
+def ant_movement(
+    field_path: str,
+    pos: Tuple[int, int] = (512, 512),
+    direction: str = "top",
+) -> int:
+    with Image.open(field_path) as img:
+        img.load()
 
-    def movement_trajectory(self):
-        with Image.open(self.__field_path) as img:
-            img.load()
+    if img.mode != IMAGE_MONOCHROME_MODE:
+        raise ValueError("Неверный формат изображения")
 
-        if img.mode != IMAGE_MONOCHROME_MODE:
-            raise ValueError("Неверный формат изображения")
+    count_black_dots = 0
 
-        while self.check_pos_in_field(img.size):
-            current_pixel = int(img.getpixel(self.__pos))
-            new_pixel = BLACK_COLOR if current_pixel != BLACK_COLOR else WHITE_COLOR
-            self.__count_black_dots += 1 if new_pixel == BLACK_COLOR else -1
+    while check_pos_in_field_zone(img.size, pos):
+        current_pixel = int(img.getpixel(pos))
+        new_pixel = BLACK_COLOR if current_pixel != BLACK_COLOR else WHITE_COLOR
+        count_black_dots += 1 if new_pixel == BLACK_COLOR else -1
 
-            img.putpixel(self.__pos, new_pixel)
-            self.rotate(current_pixel)
-            self.move()
+        img.putpixel(pos, new_pixel)
+        direction = new_direction(direction, current_pixel)
+        pos = new_pos(pos, direction)
 
-        img.save(RESULT_FIELD_SAVE_PATH, IMAGE_FORMAT)
+    img.save(RESULT_FIELD_SAVE_PATH, IMAGE_FORMAT)
 
-        return self.__count_black_dots
+    return count_black_dots
 
-    def check_pos_in_field(self, field_size: Tuple[int, int]):
-        x_len = field_size[0]
-        y_len = field_size[1]
-        x_pos = self.__pos[0]
-        y_pos = self.__pos[1]
-        if 0 < x_pos < x_len and 0 < y_pos < y_len:
-            return True
-        return False
 
-    def move(self):
-        self.__pos = (
-            self.__pos[0] + self.directions[self.__direction]["move_x"],
-            self.__pos[1] + self.directions[self.__direction]["move_y"],
-        )
+def check_pos_in_field_zone(field_size: Tuple[int, int], pos: Tuple[int, int]) -> bool:
+    if 0 < pos[0] < field_size[0] and 0 < pos[1] < field_size[1]:
+        return True
+    return False
 
-    def rotate(self, current_pixel: int):
-        self.__direction = (
-            self.directions[self.__direction]["turn_counterclockwise"]
-            if current_pixel != BLACK_COLOR
-            else self.directions[self.__direction]["turn_clockwise"]
-        )
+
+def new_pos(old_pos: Tuple[int, int], direction: str) -> Tuple[int, int]:
+    return (
+        old_pos[0] + DIRECTIONS[direction]["move_x"],
+        old_pos[1] + DIRECTIONS[direction]["move_y"],
+    )
+
+
+def new_direction(old_direction, current_pixel: int) -> str:
+    return (
+        DIRECTIONS[old_direction]["turn_counterclockwise"]
+        if current_pixel != BLACK_COLOR
+        else DIRECTIONS[old_direction]["turn_clockwise"]
+    )
 
 
 def main():
     start_field_path = create_start_field()
-    ant = Ant(start_field_path)
-    count_black_dots = ant.movement_trajectory()
+    count_black_dots = ant_movement(start_field_path)
     print(f"Количество черных точек: {count_black_dots}")
 
 
